@@ -70,7 +70,7 @@ if not sys.warnoptions:
    # warnings.simplefilter("default")
 from sklearn.model_selection import RepeatedKFold
 
-def ncvmodel(X,y,featsel,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
+def ncvmodel(X,y,featsel,names,classifiers,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
 
     mod=np.array([])
     i=0
