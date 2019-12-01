@@ -1,3 +1,73 @@
+from sklearn.ensemble import RandomForestRegressor
+
+import pandas as pd
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import shap
+# roc curve and auc score
+from sklearn.datasets import make_classification
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import GradientBoostingRegressor as GBM
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix
+
+#from sklearn.linear_model import GradientBoostingClassifier 
+from sklearn.mixture import GMM
+from boruta import BorutaPy
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
+
+from sklearn import cross_validation
+from sklearn.model_selection import train_test_split
+
+from sklearn import ensemble
+
+
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+from matplotlib.backends.backend_pdf import PdfPages
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import make_moons, make_circles, make_classification
+
+from sklearn.neural_network import MLPClassifier
+
+from sklearn.svm import SVC
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+import xgboost as xgb
+#from glmnet import LogitNet
+from xgboost import XGBClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.naive_bayes import BernoulliNB
+
+from sklearn import linear_model
+
+from sklearn.manifold import TSNE
+from sklearn.decomposition import FastICA
+
+from sklearn.preprocessing import StandardScaler
+
+import random
+
+import umap
+import hdbscan
+
+import sys
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore")
+   # warnings.simplefilter("default")
 from sklearn.model_selection import RepeatedKFold
 
 def ncvmodel(X,y,featsel,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
