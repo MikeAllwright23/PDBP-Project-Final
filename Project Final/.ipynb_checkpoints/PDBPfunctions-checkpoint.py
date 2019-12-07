@@ -70,11 +70,31 @@ if not sys.warnoptions:
    # warnings.simplefilter("default")
 from sklearn.model_selection import RepeatedKFold
 
-def ncvmodel(X,y,featsel,names,classifiers,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
+def plot_roc_curve(fpr, tpr):
+    plt.plot(fpr, tpr, color='black', label='ROC')
+    plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend()
+    plt.show()
 
+
+def barplot(x,y,data):
+    fig = plt.figure(figsize=(30,10))
+    ax = sns.barplot(x=x, y=y, data=data)
+    for p in ax.patches:
+        ax.annotate(format(p.get_height(), '.2f'), (p.get_x() + p.get_width() / 2.,
+                    p.get_height()), ha = 'center', va = 'center',
+                    xytext = (0, 10), textcoords = 'offset points')
+
+
+def ncvmodel(X,y,featsel,names,classifiers,path,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
+    
     mod=np.array([])
     i=0
     random_state = 12883823
+
     fs=featsel
     rkf = RepeatedKFold(n_splits=n_splits, n_repeats=reps, random_state=random_state)
 
@@ -82,7 +102,7 @@ def ncvmodel(X,y,featsel,names,classifiers,y_var="PD",name="test",reps=100,umap_
         import umap
         n_neighbors=um_neigh
         reducer    = umap.UMAP(n_neighbors=n_neighbors,n_components=umap_c)
-        X_Um = reducer.fit_transform(X_used)
+        X_Um = reducer.fit_transform(X)
         X_m=X_Um
     if fs=="auto":
         X_m=X_auto
@@ -160,3 +180,75 @@ def ncvmodel(X,y,featsel,names,classifiers,y_var="PD",name="test",reps=100,umap_
         plt.show()
         plt.close()
     return testing_data,mod_sum
+
+
+
+def score_model(X,y,X_nih,fs,path,names,classifiers,X_nih_samp,X_nih_samp_orig,name="test",umap_c=30,um_neigh=20,pca_comp=20):
+
+    if fs=="UMap":
+        import umap
+        reducer    = umap.UMAP(n_neighbors=um_neigh,n_components=umap_c)
+        #X_Um = reducer.fit_transform(X)
+        #X_nih_Um = reducer.transform(X_nih)
+
+        trans = reducer.fit(X)
+        X_nih_Um = trans.transform(X_nih)
+        X_Um=trans.transform(X)
+        X_nih=X_nih_Um
+        X=X_Um
+
+    if fs=="auto":
+        X=X_auto
+
+    if fs=="pca":
+        X=X_pca
+
+    j=1
+    mod=np.array([])
+    pbs=np.array([])
+    samp=np.array([])
+    samp2=np.array([])
+    probs_full=np.array([])
+
+    print(len(pbs))
+    print(len(probs_full))
+    
+    pbs_ens=0
+    for j in range(len(names)):
+        pbs=0
+        model=classifiers[j]
+        modname=names[j]
+        model.fit(X, y)
+        pbs = model.predict_proba(X_nih)
+        pbs=pbs[:,1]
+        probs_full=np.append(probs_full,pbs)
+        sam=0
+        
+        if names[j]=="Naive Bayes" or names[j]=="Log Reg" or names[j]=="KNN":
+                pbs_ens=pbs_ens+pbs
+                
+        
+        for i in range(len(pbs)):
+            mod=np.append(mod,modname)
+            sam=X_nih_samp[i]
+            samp=np.append(samp,sam)
+            
+            sam2=X_nih_samp_orig[i]
+            samp2=np.append(samp2,sam2)
+   
+    probs_full=np.append(probs_full,pbs_ens/3)    
+    for k in range (len(pbs_ens)):
+        mod=np.append(mod,"Ensemble")
+        sam=X_nih_samp[k]
+        samp=np.append(samp,sam)
+
+        sam2=X_nih_samp_orig[k]
+        samp2=np.append(samp2,sam2)
+        
+        
+    print(X.shape)
+    print(len(probs_full))        
+    nih_preds = pd.DataFrame({'Sample':samp,'SampleCrossCheck':samp2,'Model':mod,'probs':probs_full})
+    
+    nih_preds.to_csv("%s%s" % (path,str(name)+'.csv'))
+    return nih_preds
