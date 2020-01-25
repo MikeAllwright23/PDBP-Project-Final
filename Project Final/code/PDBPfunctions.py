@@ -60,6 +60,7 @@ from sklearn.preprocessing import StandardScaler
 
 import random
 
+import upsetplot
 import umap
 import hdbscan
 
@@ -69,6 +70,7 @@ if not sys.warnoptions:
     warnings.simplefilter("ignore")
    # warnings.simplefilter("default")
 from sklearn.model_selection import RepeatedKFold
+
 
 def plot_roc_curve(fpr, tpr):
     plt.plot(fpr, tpr, color='black', label='ROC')
@@ -92,9 +94,10 @@ def barplot(x,y,data):
 def ncvmodel(X,y,featsel,names,classifiers,path,y_var="PD",name="test",reps=100,umap_c=30,um_neigh=20,pca_comp=20,n_splits=3):
     
     mod=np.array([])
+    X_m=np.array([])
     i=0
     random_state = 12883823
-
+    X_m=X
     fs=featsel
     rkf = RepeatedKFold(n_splits=n_splits, n_repeats=reps, random_state=random_state)
 
@@ -105,23 +108,30 @@ def ncvmodel(X,y,featsel,names,classifiers,path,y_var="PD",name="test",reps=100,
         X_Um = reducer.fit_transform(X)
         X_m=X_Um
     if fs=="auto":
-        X_m=X_auto
+        X_m=X_auto   
+    
+    print(X_m)   
         
-    if fs=="none":
-        X_m=X
+ 
         
     models=np.array([])
     auc_vals=np.array([])
     for train_index, test_index in rkf.split(X_m):
         X_train, X_test = X_m[train_index], X_m[test_index]
         y_train, y_test = y[train_index], y[test_index]
-  
+        
+        if fs=="UMapinner": 
+            import umap
+            y_used_vals=np.where(y_train=="PD", 1, 0)
+            mapper = umap.UMAP(n_neighbors=um_neigh,n_components=umap_c,random_state=42).fit(X_train,y_used_vals)
+            X_train =mapper.transform(X_train)
+            X_test =mapper.transform(X_test)
+                
         mod=np.array([])
         inc=np.array([])
         pbs=0
         ct=0
         i=i+1
-       
         for j in range(len(names)):
 
             model=classifiers[j]
@@ -134,8 +144,7 @@ def ncvmodel(X,y,featsel,names,classifiers,path,y_var="PD",name="test",reps=100,
             auc = roc_auc_score(y_vals, probs)
             inc=np.append(inc,auc)
             mod=np.append(mod,modname)
-           
-            if names[j]=="Naive Bayes" or names[j]=="Log Reg" or names[j]=="KNN":
+            if names[j]=="Naive Bayes" or names[j]=="Log Reg" or names[j]=="KNN" or names[j]=="Bernoulli NB":
                 pbs=pbs+probs
                 ct=ct+1
             #ensemble voting
@@ -165,7 +174,6 @@ def ncvmodel(X,y,featsel,names,classifiers,path,y_var="PD",name="test",reps=100,
         export_pdf.savefig()       
         plt.show()
         plt.close()
-     
         y=mod_sum['AUC Performance Metric']
         x=mod_sum['Model']
         
@@ -188,8 +196,17 @@ def score_model(X,y,X_nih,fs,path,names,classifiers,X_nih_samp,X_nih_samp_orig,n
     if fs=="UMap":
         import umap
         reducer    = umap.UMAP(n_neighbors=um_neigh,n_components=umap_c)
-        #X_Um = reducer.fit_transform(X)
-        #X_nih_Um = reducer.transform(X_nih)
+
+        trans = reducer.fit(X)
+        X_nih_Um = trans.transform(X_nih)
+        X_Um=trans.transform(X)
+        X_nih=X_nih_Um
+        X=X_Um
+        
+    
+    if fs=="UMapfull":
+        import umap
+        reducer    = umap.UMAP(n_neighbors=um_neigh,n_components=umap_c)
 
         trans = reducer.fit(X)
         X_nih_Um = trans.transform(X_nih)
@@ -202,14 +219,16 @@ def score_model(X,y,X_nih,fs,path,names,classifiers,X_nih_samp,X_nih_samp_orig,n
 
     if fs=="pca":
         X=X_pca
-
+    
+ 
     j=1
     mod=np.array([])
     pbs=np.array([])
     samp=np.array([])
     samp2=np.array([])
     probs_full=np.array([])
-
+    
+    print(len(X))
     print(len(pbs))
     print(len(probs_full))
     
@@ -252,3 +271,71 @@ def score_model(X,y,X_nih,fs,path,names,classifiers,X_nih_samp,X_nih_samp_orig,n
     
     nih_preds.to_csv("%s%s" % (path,str(name)+'.csv'))
     return nih_preds
+
+
+def score_model_resamp(X,y,X_nih,fs,path,names,classifiers,X_nih_samp,X_nih_samp_orig,name="test",umap_c=30,um_neigh=20,pca_comp=20,resamps=10):
+    
+    mod=np.array([])
+    samp=np.array([])
+    samp2=np.array([])
+    pbs=np.array([])
+    probs_full=np.array([])
+    
+    for i in range(resamps):
+        print(str(i)+" resample")
+        if fs=="UMap":
+            #random_state=1234
+            import umap
+            reducer    = umap.UMAP(n_neighbors=um_neigh,n_components=umap_c)
+
+            trans = reducer.fit(X)
+            X_nih_Um = trans.transform(X_nih)
+            X_Um=trans.transform(X)
+            X_nih=X_nih_Um
+            X=X_Um
+
+        pbs_ens=0
+        
+        for j in range(len(names)):
+            pbs=0
+            model=classifiers[j]
+            modname=names[j]
+            model.fit(X, y)
+            pbs = model.predict_proba(X_nih)
+            pbs=pbs[:,1]
+            probs_full=np.append(probs_full,pbs)
+            sam=0
+
+            if names[j]=="Naive Bayes" or names[j]=="Log Reg" or names[j]=="KNN":
+                pbs_ens=pbs_ens+pbs
+
+
+            for i in range(len(pbs)):
+                mod=np.append(mod,modname)
+                sam=X_nih_samp[i]
+                samp=np.append(samp,sam)
+
+                sam2=X_nih_samp_orig[i]
+                samp2=np.append(samp2,sam2)
+
+        probs_full=np.append(probs_full,pbs_ens/3)    
+        for k in range (len(pbs_ens)):
+            mod=np.append(mod,"Ensemble")
+            sam=X_nih_samp[k]
+            samp=np.append(samp,sam)
+
+            sam2=X_nih_samp_orig[k]
+            samp2=np.append(samp2,sam2)
+        
+        
+    print(X.shape)
+    print(len(probs_full))        
+    nih_preds = pd.DataFrame({'Sample':samp,'SampleCrossCheck':samp2,'Model':mod,'probs':probs_full})
+    
+    nih_preds=pd.DataFrame(nih_preds.groupby(['Sample','SampleCrossCheck','Model']).agg({'probs':['mean','std']})).reset_index()
+    
+    nih_preds.columns=['Sample','SampleCrossCheck','Model','probs mean','probs std']
+    
+    nih_preds.to_csv("%s%s" % (path,str(name)+'.csv'))
+    return nih_preds
+
